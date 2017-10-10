@@ -14,7 +14,7 @@ setup(
         'curd',
     ],
     install_requires=[
-        'cassandra-driver',
-        'pymysql',
+        'cassandra-driver==3.11.0',
+        'PyMySQL==0.7.11',
     ],
 )
