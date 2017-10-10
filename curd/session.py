@@ -1,0 +1,118 @@
+import json
+import queue
+from functools import partial
+from collections import OrderedDict
+
+from .connections import CURD_FUNCTIONS
+from .connections.mysql import MysqlConnection
+from .connections.cassandra import CassandraConnection
+
+from .errors import ProgrammingError
+
+
+class CassandraConnectionPool(CassandraConnection):
+    pass
+
+
+class MysqlConnectionPool(object):
+    def __init__(self, *args, **kwargs):
+        self.conn_queue = queue.Queue()
+        self._args = args
+        self._kwargs = kwargs
+        
+        for func in CURD_FUNCTIONS:
+            setattr(self, func, partial(self._wrap_func, func))
+            
+    def get_connection(self):
+        return MysqlConnection(*self._args, **self._kwargs)
+        
+    def _wrap_func(self, func, *args, **kwargs):
+        try:
+            conn = self.conn_queue.get_nowait()
+        except queue.Empty:
+            conn = self.get_connection()
+            
+        try:
+            return getattr(conn, func)(*args, **kwargs)
+        except:
+            raise
+        finally:
+            self.conn_queue.put_nowait(conn)
+
+
+class Session(object):
+    
+    '''
+    mysql db conf
+    {
+        'type': ''
+        'conf': {
+            'host': '127.0.0.1',
+            'port': 3306,
+            'user': 'user',
+            'password': 'password'
+        }
+    }
+    cassandra db conf
+    {
+        'type': 'cassandra',
+        'conf': {
+            'hosts': ['127.0.0.1'],
+            'username': 'username',
+            'password': 'password'
+        }
+    }
+    '''
+    
+    def __init__(self, dbs=None):
+        self._connection_cache = OrderedDict()
+        self._default_connection = None
+        
+        if dbs:
+            for db in dbs:
+                self._get_connection(db)
+        
+    def _create_connection(self, db):
+        if db['type'] == 'mysql':
+            return MysqlConnectionPool(db['conf'])
+        elif db['type'] == 'cassandra':
+            return CassandraConnectionPool(db['conf'])
+        else:
+            raise ProgrammingError('not supported database')
+        
+    def set_default_connection(self, db):
+        key = json.dumps(db)
+        conn = self._connection_cache.get(key, None)
+        if not conn:
+            conn = self._create_connection(db)
+            self._connection_cache[key] = conn
+        self._default_connection = conn
+        
+    def _get_connection(self, db):
+        key = json.dumps(db)
+        conn = self._connection_cache.get(key, None)
+        if conn:
+            return conn
+        else:
+            conn = self._create_connection(db)
+            self._connection_cache[key] = conn
+            
+            if not self._default_connection:
+                self._default_connection = conn
+            
+            return conn
+        
+    def using(self, db=None):
+        if db:
+            return self._get_connection(db)
+        else:
+            return self._default_connection
+        
+    def __getattr__(self, item):
+        if item in CURD_FUNCTIONS:
+            if self._default_connection:
+                return getattr(self._default_connection, item)
+            else:
+                raise ProgrammingError('no database conf')
+        else:
+            raise AttributeError
