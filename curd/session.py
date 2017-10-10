@@ -45,7 +45,7 @@ class Session(object):
     '''
     mysql db conf
     {
-        'type': ''
+        'type': 'mysql'
         'conf': {
             'host': '127.0.0.1',
             'port': 3306,

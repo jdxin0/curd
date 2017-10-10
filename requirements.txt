@@ -1,3 +1,8 @@
+# database
 cassandra-driver==3.11.0
 pymongo==3.5.1
 PyMySQL==0.7.11
+
+# test
+pytest
+docker
