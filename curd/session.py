@@ -38,6 +38,15 @@ class MysqlConnectionPool(object):
             raise
         finally:
             self.conn_queue.put_nowait(conn)
+            
+    def close(self):
+        while True:
+            try:
+                conn = self.conn_queue.get_nowait()
+            except queue.Empty:
+                break
+            else:
+                conn.close()
 
 
 class Session(object):
@@ -116,3 +125,9 @@ class Session(object):
                 raise ProgrammingError('no database conf')
         else:
             raise AttributeError
+            
+    def close(self):
+        for k, v in self._connection_cache.items():
+            v.close()
+        self._connection_cache = OrderedDict()
+        self._default_connection = None

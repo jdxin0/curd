@@ -43,15 +43,16 @@ class CassandraConnection(BaseConnection):
             raise ConnectError(origin_error=e)
 
     def close(self):
-        try:
-            self.session.shutdown()
-        except Exception as e:
-            logger.warning(str(e))
-    
-        try:
-            self.cluster.shutdown()
-        except Exception as e:
-            logger.warning(str(e))
+        if self.session:
+            try:
+                self.session.shutdown()
+            except Exception as e:
+                logger.warning(str(e))
+        if self.cluster:
+            try:
+                self.cluster.shutdown()
+            except Exception as e:
+                logger.warning(str(e))
 
         self.cluster, self.session = None, None
         
@@ -70,7 +71,7 @@ class CassandraConnection(BaseConnection):
         except Exception as e:
             raise UnexpectedError(origin_error=e)
         
-    def execute(self, query, params, retry=0, timeout=CASSANDRA_EXECUTE_TIMEOUT):
+    def execute(self, query, params=None, retry=0, timeout=CASSANDRA_EXECUTE_TIMEOUT):
         retry_no = 0
         if retry_no <= retry:
             try:

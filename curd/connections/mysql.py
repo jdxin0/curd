@@ -47,15 +47,17 @@ class MysqlConnection(BaseConnection):
             raise ConnectError(origin_error=e)
     
     def close(self):
-        try:
-            self.cursor.close()
-        except Exception as e:
-            logger.warning(str(e))
+        if self.cursor:
+            try:
+                self.cursor.close()
+            except Exception as e:
+                logger.warning(str(e))
+        if self.conn:
         
-        try:
-            self.conn.close()
-        except Exception as e:
-            logger.warning(str(e))
+            try:
+                self.conn.close()
+            except Exception as e:
+                logger.warning(str(e))
 
         self.conn, self.cursor = None, None
         
@@ -81,7 +83,7 @@ class MysqlConnection(BaseConnection):
             else:
                 raise UnexpectedError(origin_error=e)
             
-    def execute(self, query, params, retry=0):
+    def execute(self, query, params=None, retry=0):
         retry_no = 0
         mysql_gone_away_count = 0
         if retry_no <= retry:
@@ -138,6 +140,5 @@ class MysqlConnection(BaseConnection):
         filters = self._check_filters(filters)
         query, params = query_parameters_from_filter(
             collection, filters, fields, order_by, limit)
-        print(query, params)
         rows = self.execute(query, params, **kwargs)
         return rows
