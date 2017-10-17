@@ -15,6 +15,8 @@ CURD_FUNCTIONS = (
 
 class BaseConnection(object):
     def _check_filters(self, filters):
+        if filters is None:
+            filters = []
         new_filters = []
         for op, k, v in filters:
             if op.upper() not in FILTER_OP:
@@ -26,24 +28,24 @@ class BaseConnection(object):
     def create(self, collection, data, mode='INSERT', **kwargs):
         raise NotImplementedError
 
-    def update(self, collection, filters, data, **kwargs):
+    def update(self, collection, data, filters=None, **kwargs):
         raise NotImplementedError
 
-    def delete(self, collection, filters, **kwargs):
+    def delete(self, collection, filters=None, **kwargs):
         raise NotImplementedError
     
-    def filter(self, collection, filters, fields=None,
+    def filter(self, collection, filters=None, fields=None,
                order_by=None, limit=DEFAULT_FILTER_LIMIT, **kwargs):
         raise NotImplementedError
     
-    def get(self, collection, filters, fields=None, **kwargs):
+    def get(self, collection, filters=None, fields=None, **kwargs):
         rows = self.filter(collection, filters, fields, limit=1, **kwargs)
         if rows:
             return rows[0]
         else:
             return None
 
-    def exist(self, collection, filters, **kwargs):
+    def exist(self, collection, filters=None, **kwargs):
         if filters:
             fields = list(filters.keys())[0]
             data = self.get(collection, filters, fields=fields, **kwargs)

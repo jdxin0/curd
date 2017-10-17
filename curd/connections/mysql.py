@@ -17,13 +17,21 @@ from . import BaseConnection
 
 # https://www.briandunning.com/error-codes/?source=MySQL
 
-PE_MYSQL_ERROR_CODE_LIST = [1105] + list(range(1046, 1076))
-OF_MYSQL_ERROR_CODE_LIST = [1040, 2006]
+PE_MYSQL_ERROR_CODE_LIST = [
+    1105,
+    1265,  # Data truncated, tidb error
+] + list(range(1046, 1076))
 
-OF_MYSQL_GONE_AWAY_ERROR_CODE = 2006
+
 PE_DUPLICATE_ENTRY_KEY_ERROR_CODE = 1062
 
-MAX_MYSQL_GONE_AWAY_RETRY = 2
+OF_MYSQL_ERROR_CODE_LIST = [0, 1040, 2006, 2013]
+OF_RETRY_ERROR_CODE_LIST = [
+    0,  # mysql interface error
+    2006,  # mysql gone away
+    2013,  # mysql connection timeout
+]
+MAX_OF_RETRY = 3
 
 
 class MysqlConnection(BaseConnection):
@@ -91,10 +99,10 @@ class MysqlConnection(BaseConnection):
                 rows = list(self._execute(query, params))
                 return rows
             except OperationFailure as e:
-                # deal with mysql has gone away
-                if e._origin_error.args[0] == OF_MYSQL_GONE_AWAY_ERROR_CODE:
-                    if mysql_gone_away_count < MAX_MYSQL_GONE_AWAY_RETRY:
-                        logger.warning('reconnect when mysql has gone away')
+                # deal with retry
+                if e._origin_error.args[0] in OF_RETRY_ERROR_CODE_LIST:
+                    if mysql_gone_away_count < MAX_OF_RETRY:
+                        logger.warning(str(e._origin_error))
                         mysql_gone_away_count += 1
                         
                         self.close()
@@ -125,17 +133,17 @@ class MysqlConnection(BaseConnection):
             else:
                 raise
 
-    def update(self, collection, filters, data, **kwargs):
+    def update(self, collection, data, filters=None, **kwargs):
         filters = self._check_filters(filters)
         query, params = query_parameters_from_update(collection, filters, data)
         self.execute(query, params, **kwargs)
 
-    def delete(self, collection, filters, **kwargs):
+    def delete(self, collection, filters=None, **kwargs):
         filters = self._check_filters(filters)
         query, params = query_parameters_from_delete(collection, filters)
         self.execute(query, params, **kwargs)
         
-    def filter(self, collection, filters, fields=None,
+    def filter(self, collection, filters=None, fields=None,
                order_by=None, limit=1000, **kwargs):
         filters = self._check_filters(filters)
         query, params = query_parameters_from_filter(

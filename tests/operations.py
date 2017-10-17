@@ -27,7 +27,7 @@ def update(session, create_test_table):
     collection = create_test_table(session)
     data = {'id': 100, 'text': 'test'}
     session.create(collection, data)
-    session.update(collection, [('=', 'id', data['id'])], {'text': 't2'})
+    session.update(collection, {'text': 't2'}, [('=', 'id', data['id'])])
     d = session.get(collection, [('=', 'id', data['id'])])
     assert d['text'] == 't2'
     
