@@ -28,10 +28,10 @@ class BaseConnection(object):
     def create(self, collection, data, mode='INSERT', **kwargs):
         raise NotImplementedError
 
-    def update(self, collection, data, filters=None, **kwargs):
+    def update(self, collection, data, filters, **kwargs):
         raise NotImplementedError
 
-    def delete(self, collection, filters=None, **kwargs):
+    def delete(self, collection, filters, **kwargs):
         raise NotImplementedError
     
     def filter(self, collection, filters=None, fields=None,

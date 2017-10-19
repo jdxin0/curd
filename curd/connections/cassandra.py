@@ -97,12 +97,12 @@ class CassandraConnection(BaseConnection):
         if rows and mode.upper() != 'IGNORE' and not rows[0].get('applied', True):
             raise DuplicateKeyError
 
-    def update(self, collection, data, filters=None, **kwargs):
+    def update(self, collection, data, filters, **kwargs):
         filters = self._check_filters(filters)
         query, params = query_parameters_from_update(collection, filters, data)
         self.execute(query, params, **kwargs)
         
-    def delete(self, collection, filters=None, **kwargs):
+    def delete(self, collection, filters, **kwargs):
         filters = self._check_filters(filters)
         query, params = query_parameters_from_delete(collection, filters)
         self.execute(query, params, **kwargs)
