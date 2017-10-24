@@ -18,7 +18,6 @@ from . import BaseConnection
 # https://www.briandunning.com/error-codes/?source=MySQL
 
 PE_MYSQL_ERROR_CODE_LIST = [
-    1105,
     1265,  # Data truncated, tidb error
 ] + list(range(1046, 1076))
 
