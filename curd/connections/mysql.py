@@ -25,15 +25,29 @@ PE_MYSQL_ERROR_CODE_LIST = [
 PE_DUPLICATE_ENTRY_KEY_ERROR_CODE = 1062
 
 OF_MYSQL_ERROR_CODE_LIST = [0, 1040, 2006, 2013]
-OF_RETRY_ERROR_CODE_LIST = [
+OF_MYSQL_RETRY_ERROR_CODE_LIST = [
     0,  # mysql interface error
+    1040,  # mysql too many connections
     2006,  # mysql gone away
     2013,  # mysql connection timeout
 ]
 MAX_OF_RETRY = 3
 
+TIDB_TRY_AGAIN_LATER_ERROR_CODE = 1105
+OF_TIDB_ERROR_CODE_LIST = OF_MYSQL_ERROR_CODE_LIST + \
+    [TIDB_TRY_AGAIN_LATER_ERROR_CODE]
+OF_TIDB_RETRY_ERROR_CODE_LIST = OF_MYSQL_RETRY_ERROR_CODE_LIST + \
+    [TIDB_TRY_AGAIN_LATER_ERROR_CODE]
+
 
 class MysqlConnection(BaseConnection):
+    pe_mysql_error_code_list = PE_MYSQL_ERROR_CODE_LIST
+    pe_duplicate_entry_key_error_code = PE_DUPLICATE_ENTRY_KEY_ERROR_CODE
+    
+    of_mysql_error_code_list = OF_MYSQL_ERROR_CODE_LIST
+    of_mysql_retry_error_code_list = OF_MYSQL_RETRY_ERROR_CODE_LIST
+    max_of_retry = MAX_OF_RETRY
+    
     def __init__(self, conf):
         self._conf = conf
         self.conn, self.cursor = None, None
@@ -81,9 +95,9 @@ class MysqlConnection(BaseConnection):
             raise ProgrammingError(origin_error=e)
         except Exception as e:
             if isinstance(e.args, tuple) and len(e.args) >= 1:
-                if e.args[0] in PE_MYSQL_ERROR_CODE_LIST:
+                if e.args[0] in self.pe_mysql_error_code_list:
                     raise ProgrammingError(origin_error=e)
-                elif e.args[0] in OF_MYSQL_ERROR_CODE_LIST:
+                elif e.args[0] in self.of_mysql_error_code_list:
                     raise OperationFailure(origin_error=e)
                 else:
                     raise UnexpectedError(origin_error=e)
@@ -92,17 +106,17 @@ class MysqlConnection(BaseConnection):
             
     def execute(self, query, params=None, retry=0):
         retry_no = 0
-        mysql_gone_away_count = 0
+        of_retry_count = 0
         if retry_no <= retry:
             try:
                 rows = list(self._execute(query, params))
                 return rows
             except OperationFailure as e:
                 # deal with retry
-                if e._origin_error.args[0] in OF_RETRY_ERROR_CODE_LIST:
-                    if mysql_gone_away_count < MAX_OF_RETRY:
+                if e._origin_error.args[0] in self.of_mysql_retry_error_code_list:
+                    if of_retry_count < MAX_OF_RETRY:
                         logger.warning(str(e._origin_error))
-                        mysql_gone_away_count += 1
+                        of_retry_count += 1
                         
                         self.close()
                         retry_no -= 1
@@ -127,7 +141,7 @@ class MysqlConnection(BaseConnection):
         try:
             self.execute(query, params, **kwargs)
         except ProgrammingError as e:
-            if e._origin_error.args[0] == PE_DUPLICATE_ENTRY_KEY_ERROR_CODE:
+            if e._origin_error.args[0] == self.pe_duplicate_entry_key_error_code:
                 raise DuplicateKeyError(str(e._origin_error))
             else:
                 raise
@@ -149,3 +163,7 @@ class MysqlConnection(BaseConnection):
             collection, filters, fields, order_by, limit)
         rows = self.execute(query, params, **kwargs)
         return rows
+    
+    def patch_execute_as_tidb(self):
+        self.of_mysql_error_code_list = OF_TIDB_ERROR_CODE_LIST
+        self.of_mysql_retry_error_code_list = OF_TIDB_RETRY_ERROR_CODE_LIST
