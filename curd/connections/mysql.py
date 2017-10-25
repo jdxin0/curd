@@ -56,6 +56,8 @@ class MysqlConnection(BaseConnection):
         conf['use_unicode'] = True
         conf['charset'] = 'utf8mb4'
         conf['autocommit'] = True
+        if conf.pop('tidb_patch', False):
+            self.patch_execute_as_tidb()
 
         conn = pymysql.connect(**conf)
         cursor = conn.cursor(pymysql.cursors.DictCursor)

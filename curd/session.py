@@ -62,6 +62,17 @@ class Session(object):
             'password': 'password'
         }
     }
+    tidb conf
+    {
+        'type': 'mysql'
+        'conf': {
+            'host': '127.0.0.1',
+            'port': 3306,
+            'user': 'user',
+            'password': 'password',
+            'tidb_patch': True
+        }
+    }
     cassandra db conf
     {
         'type': 'cassandra',
