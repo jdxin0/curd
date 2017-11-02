@@ -6,6 +6,8 @@ from ..errors import ProgrammingError
 logger = logging.Logger('curd')
 
 DEFAULT_FILTER_LIMIT = 100
+DEFAULT_TIMEOUT = 3600 * 10
+
 CREATE_MODE = ('INSERT', 'IGNORE', 'REPLACE')
 FILTER_OP = ('<', '>', '>=', '<=', '=', '!=', 'IN')
 CURD_FUNCTIONS = (

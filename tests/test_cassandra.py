@@ -1,5 +1,5 @@
 from .operations import (
-    create, delete, normal_filter, thread_pool, update
+    create, delete, normal_filter, thread_pool, update, timeout
 )
 
 from curd import Session
@@ -20,3 +20,4 @@ def test_cassandra():
     delete(session, create_test_table)
     normal_filter(session, create_test_table)
     thread_pool(session, create_test_table)
+    timeout(session, create_test_table)

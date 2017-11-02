@@ -4,7 +4,7 @@ import copy
 from multiprocessing.pool import ThreadPool
 from threading import current_thread
 
-from curd import DuplicateKeyError
+from curd import DuplicateKeyError, OperationFailure
 
 
 def create(session, create_test_table):
@@ -67,8 +67,20 @@ def filter_with_order_by(session, create_test_table):
         collection, [('IN', 'id', (1, 32, 16))],
         fields=['id'], order_by='-id')
     assert [item['id'] for item in items] == [32, 16, 1]
-
     
+    
+def timeout(session, create_test_table):
+    collection = create_test_table(session)
+    for i in range(1, 2000):
+        session.create(collection, {'id': i, 'text': 'test'})
+
+    with pytest.raises(OperationFailure):
+        items = session.filter(
+            collection, [('IN', 'id', (1, 32, 16))],
+            fields=['id'], order_by='id', timeout=0.000001)
+        print(items)
+
+
 def thread_pool(session, create_test_table):
     collection = create_test_table(session)
     

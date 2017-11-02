@@ -1,3 +1,4 @@
+import copy
 import pymysql
 
 from ..errors import (
@@ -12,7 +13,7 @@ from .utils.sql import (
     query_parameters_from_delete,
     query_parameters_from_filter
 )
-from . import BaseConnection
+from . import BaseConnection, DEFAULT_FILTER_LIMIT, DEFAULT_TIMEOUT
 
 
 # https://www.briandunning.com/error-codes/?source=MySQL
@@ -31,7 +32,6 @@ OF_MYSQL_RETRY_ERROR_CODE_LIST = [
     2006,  # mysql gone away
     2013,  # mysql connection timeout
 ]
-MAX_OF_RETRY = 3
 
 TIDB_TRY_AGAIN_LATER_ERROR_CODE = 1105
 OF_TIDB_ERROR_CODE_LIST = OF_MYSQL_ERROR_CODE_LIST + \
@@ -46,16 +46,27 @@ class MysqlConnection(BaseConnection):
     
     of_mysql_error_code_list = OF_MYSQL_ERROR_CODE_LIST
     of_mysql_retry_error_code_list = OF_MYSQL_RETRY_ERROR_CODE_LIST
-    max_of_retry = MAX_OF_RETRY
     
     def __init__(self, conf):
         self._conf = conf
         self.conn, self.cursor = None, None
+
+        self.max_op_fail_retry = conf.get('max_op_fail_retry', 0)
+        self.default_timeout = conf.get('timeout', DEFAULT_TIMEOUT)
     
     def _connect(self, conf):
+        conf = copy.deepcopy(conf)
+
+        self.max_op_fail_retry = conf.pop('max_op_fail_retry', 0)
+        self.default_timeout = conf.pop('timeout', DEFAULT_TIMEOUT)
+        
         conf['use_unicode'] = True
         conf['charset'] = 'utf8mb4'
         conf['autocommit'] = True
+        
+        conf['read_timeout'] = self.default_timeout
+        conf['write_timeout'] = self.default_timeout
+        
         if conf.pop('tidb_patch', False):
             self.patch_execute_as_tidb()
 
@@ -84,11 +95,14 @@ class MysqlConnection(BaseConnection):
 
         self.conn, self.cursor = None, None
         
-    def _execute(self, query, params):
+    def _execute(self, query, params, timeout):
         if self.cursor and self.conn:
             pass
         else:
             self.conn, self.cursor = self.connect(self._conf)
+            
+        self.conn._read_timeout = timeout
+        self.conn._write_timeout = timeout
         
         try:
             self.cursor.execute(query, params)
@@ -106,27 +120,22 @@ class MysqlConnection(BaseConnection):
             else:
                 raise UnexpectedError(origin_error=e)
             
-    def execute(self, query, params=None, retry=0):
+    def execute(self, query, params=None, retry=None, timeout=None):
+        if retry is None:
+            retry = self.max_op_fail_retry
+            
+        if timeout is None:
+            timeout = self.default_timeout
+            
         retry_no = 0
-        of_retry_count = 0
         if retry_no <= retry:
             try:
-                rows = list(self._execute(query, params))
-                return rows
+                rows = list(self._execute(query, params, timeout))
             except OperationFailure as e:
-                # deal with retry
-                if e._origin_error.args[0] in self.of_mysql_retry_error_code_list:
-                    if of_retry_count < MAX_OF_RETRY:
-                        logger.warning(str(e._origin_error))
-                        of_retry_count += 1
-                        
-                        self.close()
-                        retry_no -= 1
-                    else:
-                        raise
-    
+                self.close()
                 if retry_no < retry:
                     logger.warning('retry@' + str(e))
+                    retry_no += 1
                 else:
                     raise
             except ProgrammingError:
@@ -134,8 +143,8 @@ class MysqlConnection(BaseConnection):
             except (UnexpectedError, Exception, KeyboardInterrupt):
                 self.close()
                 raise
-    
-            retry_no += 1
+            else:
+                return rows
 
     def create(self, collection, data, mode='INSERT', **kwargs):
         query, params = query_parameters_from_create(
@@ -159,7 +168,7 @@ class MysqlConnection(BaseConnection):
         self.execute(query, params, **kwargs)
         
     def filter(self, collection, filters=None, fields=None,
-               order_by=None, limit=1000, **kwargs):
+               order_by=None, limit=DEFAULT_FILTER_LIMIT, **kwargs):
         filters = self._check_filters(filters)
         query, params = query_parameters_from_filter(
             collection, filters, fields, order_by, limit)

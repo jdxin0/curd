@@ -59,7 +59,9 @@ class Session(object):
             'host': '127.0.0.1',
             'port': 3306,
             'user': 'user',
-            'password': 'password'
+            'password': 'password',
+            'max_op_fail_retry': 3,
+            'timeout': 60
         }
     }
     tidb conf
@@ -70,7 +72,9 @@ class Session(object):
             'port': 3306,
             'user': 'user',
             'password': 'password',
-            'tidb_patch': True
+            'tidb_patch': True,
+            'max_op_fail_retry': 3,
+            'timeout': 60
         }
     }
     cassandra db conf
@@ -79,7 +83,9 @@ class Session(object):
         'conf': {
             'hosts': ['127.0.0.1'],
             'username': 'username',
-            'password': 'password'
+            'password': 'password',
+            'max_op_fail_retry': 3,
+            'timeout': 60
         }
     }
     '''

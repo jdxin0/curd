@@ -1,6 +1,7 @@
+import copy
 from cassandra.auth import PlainTextAuthProvider
 from cassandra.cluster import Cluster
-from cassandra import Timeout, InvalidRequest
+from cassandra import Timeout, OperationTimedOut, InvalidRequest
 
 from ..errors import (
     UnexpectedError, OperationFailure, ProgrammingError,
@@ -14,9 +15,7 @@ from .utils.cql import (
     query_parameters_from_delete,
     query_parameters_from_filter,
 )
-from . import BaseConnection, DEFAULT_FILTER_LIMIT
-
-CASSANDRA_EXECUTE_TIMEOUT = 3600 * 10
+from . import BaseConnection, DEFAULT_FILTER_LIMIT, DEFAULT_TIMEOUT
 
 
 class CassandraConnection(BaseConnection):
@@ -24,8 +23,16 @@ class CassandraConnection(BaseConnection):
     def __init__(self, conf):
         self._conf = conf
         self.cluster, self.session = None, None
+
+        self.max_op_fail_retry = conf.get('max_op_fail_retry', 0)
+        self.default_timeout = conf.get('timeout', DEFAULT_TIMEOUT)
         
     def _connect(self, conf):
+        conf = copy.deepcopy(conf)
+
+        self.max_op_fail_retry = conf.pop('max_op_fail_retry', 0)
+        self.default_timeout = conf.pop('timeout', DEFAULT_TIMEOUT)
+
         if conf.get('username', None):
             auth_provider = PlainTextAuthProvider(
                 username=conf['username'], password=conf['password']
@@ -63,23 +70,32 @@ class CassandraConnection(BaseConnection):
             self.cluster, self.session = self.connect(self._conf)
         
         try:
-            return self.session.execute(query, params, **kwargs)
-        except Timeout as e:
+            result = list(self.session.execute(query, params, **kwargs))
+        except (Timeout, OperationTimedOut) as e:
             raise OperationFailure(origin_error=e)
         except InvalidRequest as e:
             raise ProgrammingError(origin_error=e)
         except Exception as e:
             raise UnexpectedError(origin_error=e)
+        else:
+            return result
         
-    def execute(self, query, params=None, retry=0, timeout=CASSANDRA_EXECUTE_TIMEOUT):
+    def execute(self, query, params=None, retry=None, timeout=None):
+        if retry is None:
+            retry = self.max_op_fail_retry
+            
+        if timeout is None:
+            timeout = self.default_timeout
+
         retry_no = 0
-        if retry_no <= retry:
+        while True:
             try:
                 rows = self._execute(query, params, timeout=timeout)
-                return [row._asdict() for row in rows]
             except OperationFailure as e:
-                if retry_no < retry:
+                self.close()
+                if retry_no <= retry:
                     logger.warning('retry@' + str(e))
+                    retry_no += 1
                 else:
                     raise
             except ProgrammingError:
@@ -87,8 +103,8 @@ class CassandraConnection(BaseConnection):
             except (UnexpectedError, Exception, KeyboardInterrupt):
                 self.close()
                 raise
-            
-            retry_no += 1
+            else:
+                return [row._asdict() for row in rows]
         
     def create(self, collection, data, mode='INSERT', **kwargs):
         query, params = query_parameters_from_create(
