@@ -14,6 +14,8 @@ CURD_FUNCTIONS = (
     'create', 'update', 'get', 'delete', 'filter', 'exist', 'execute'
 )
 
+OP_RETRY_WARNING = 'RETRY: {}'
+
 
 class BaseConnection(object):
     def _check_filters(self, filters):

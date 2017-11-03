@@ -15,7 +15,9 @@ from .utils.cql import (
     query_parameters_from_delete,
     query_parameters_from_filter,
 )
-from . import BaseConnection, DEFAULT_FILTER_LIMIT, DEFAULT_TIMEOUT
+from . import (
+    BaseConnection, DEFAULT_FILTER_LIMIT, DEFAULT_TIMEOUT, OP_RETRY_WARNING
+)
 
 
 class CassandraConnection(BaseConnection):
@@ -93,8 +95,8 @@ class CassandraConnection(BaseConnection):
                 rows = self._execute(query, params, timeout=timeout)
             except OperationFailure as e:
                 self.close()
-                if retry_no <= retry:
-                    logger.warning('retry@' + str(e))
+                if retry_no < retry:
+                    logger.warning(OP_RETRY_WARNING.format(str(e)))
                     retry_no += 1
                 else:
                     raise

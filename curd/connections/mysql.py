@@ -13,8 +13,9 @@ from .utils.sql import (
     query_parameters_from_delete,
     query_parameters_from_filter
 )
-from . import BaseConnection, DEFAULT_FILTER_LIMIT, DEFAULT_TIMEOUT
-
+from . import (
+    BaseConnection, DEFAULT_FILTER_LIMIT, DEFAULT_TIMEOUT, OP_RETRY_WARNING
+)
 
 # https://www.briandunning.com/error-codes/?source=MySQL
 
@@ -106,7 +107,6 @@ class MysqlConnection(BaseConnection):
         
         try:
             self.cursor.execute(query, params)
-            return self.cursor.fetchall()
         except pymysql.err.ProgrammingError as e:
             raise ProgrammingError(origin_error=e)
         except Exception as e:
@@ -119,6 +119,8 @@ class MysqlConnection(BaseConnection):
                     raise UnexpectedError(origin_error=e)
             else:
                 raise UnexpectedError(origin_error=e)
+        else:
+            return list(self.cursor.fetchall())
             
     def execute(self, query, params=None, retry=None, timeout=None):
         if retry is None:
@@ -128,13 +130,13 @@ class MysqlConnection(BaseConnection):
             timeout = self.default_timeout
             
         retry_no = 0
-        if retry_no <= retry:
+        while True:
             try:
-                rows = list(self._execute(query, params, timeout))
+                rows = self._execute(query, params, timeout)
             except OperationFailure as e:
                 self.close()
                 if retry_no < retry:
-                    logger.warning('retry@' + str(e))
+                    logger.warning(OP_RETRY_WARNING.format(str(e)))
                     retry_no += 1
                 else:
                     raise
