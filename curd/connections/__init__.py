@@ -49,9 +49,9 @@ class BaseConnection(object):
         else:
             return None
 
-    def exist(self, collection, filters=None, **kwargs):
+    def exist(self, collection, filters, **kwargs):
         if filters:
-            fields = list(filters.keys())[0]
+            fields = [filters[0][1]]
             data = self.get(collection, filters, fields=fields, **kwargs)
             if data:
                 return False
