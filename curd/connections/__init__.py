@@ -54,8 +54,8 @@ class BaseConnection(object):
             fields = [filters[0][1]]
             data = self.get(collection, filters, fields=fields, **kwargs)
             if data:
-                return False
-            else:
                 return True
+            else:
+                return False
         else:
             raise ProgrammingError('exist without filter is not supported')
