@@ -94,7 +94,7 @@ class CassandraConnection(BaseConnection):
             try:
                 rows = self._execute(query, params, timeout=timeout)
             except OperationFailure as e:
-                self.close()
+                # self.close()
                 if retry_no < retry:
                     logger.warning(OP_RETRY_WARNING.format(str(e)))
                     retry_no += 1
