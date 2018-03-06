@@ -33,6 +33,11 @@ class WhereClause(BaseClause):
     def __init__(self, field, operator, value):
         super().__init__(field, value)
         self._operator = operator
+        if value is None:
+            if self._operator == '=':
+                self._operator = 'IS'
+            elif self._operator == '!=':
+                self._operator = 'IS NOT'
         
     @property
     def operator(self):

@@ -148,3 +148,29 @@ class Session(object):
             v.close()
         self._connection_cache = OrderedDict()
         self._default_connection = None
+
+
+class F(object):
+    def __init__(self, value):
+        self._value = value
+    
+    def __eq__(self, other):
+        return '=', self._value, other
+    
+    def __ne__(self, other):
+        return '!=', self._value, other
+    
+    def __lt__(self, other):
+        return '<', self._value, other
+    
+    def __le__(self, other):
+        return '<=', self._value, other
+    
+    def __gt__(self, other):
+        return '>', self._value, other
+    
+    def __ge__(self, other):
+        return '>=', self._value, other
+    
+    def __lshift__(self, other):
+        return 'IN', self._value, other
