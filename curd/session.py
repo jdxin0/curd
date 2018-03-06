@@ -177,10 +177,11 @@ class F(object):
     
     
 class SimpleCollection(object):
-    def __init__(self, session, path, timeout=None):
+    def __init__(self, session, path, timeout=None, retry=None):
         self.s = session
         self.path = path
         self.timeout = timeout
+        self.retry = retry
         
         for func in CURD_FUNCTIONS:
             setattr(
@@ -190,5 +191,6 @@ class SimpleCollection(object):
                     getattr(self.s, func),
                     collection=self.path,
                     timeout=timeout,
+                    retry=retry
                 )
             )
