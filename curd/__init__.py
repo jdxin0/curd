@@ -2,4 +2,4 @@ from .errors import (
     ConnectError, UnexpectedError, OperationFailure, ProgrammingError,
     DuplicateKeyError
 )
-from .session import Session
+from .session import Session, F, SimpleCollection

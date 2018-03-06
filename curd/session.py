@@ -174,3 +174,21 @@ class F(object):
     
     def __lshift__(self, other):
         return 'IN', self._value, other
+    
+    
+class SimpleCollection(object):
+    def __init__(self, session, path, timeout=None):
+        self.s = session
+        self.path = path
+        self.timeout = timeout
+        
+        for func in CURD_FUNCTIONS:
+            setattr(
+                self,
+                func,
+                partial(
+                    getattr(self.s, func),
+                    collection=self.path,
+                    timeout=timeout,
+                )
+            )
