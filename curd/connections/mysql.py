@@ -34,11 +34,14 @@ OF_MYSQL_RETRY_ERROR_CODE_LIST = [
     2013,  # mysql connection timeout
 ]
 
-TIDB_TRY_AGAIN_LATER_ERROR_CODE = 1105
+TIDB_ADDITION_ERROR_CODE_LIST = [
+    1105,  # Information schema is out of date or backoffer.maxSleep is exceeded
+    9002,  # TiKV server timeout[try again later]
+]
 OF_TIDB_ERROR_CODE_LIST = OF_MYSQL_ERROR_CODE_LIST + \
-    [TIDB_TRY_AGAIN_LATER_ERROR_CODE]
+                          TIDB_ADDITION_ERROR_CODE_LIST
 OF_TIDB_RETRY_ERROR_CODE_LIST = OF_MYSQL_RETRY_ERROR_CODE_LIST + \
-    [TIDB_TRY_AGAIN_LATER_ERROR_CODE]
+                                TIDB_ADDITION_ERROR_CODE_LIST
 
 
 class MysqlConnection(BaseConnection):
