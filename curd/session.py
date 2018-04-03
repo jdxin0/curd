@@ -15,8 +15,6 @@ class CassandraConnectionPool(CassandraConnection):
 
 
 class MysqlConnectionPool(object):
-    __slots__ = CURD_FUNCTIONS
-    
     def __init__(self, *args, **kwargs):
         self.conn_queue = queue.Queue()
         self._args = args
@@ -91,8 +89,6 @@ class Session(object):
         }
     }
     '''
-
-    __slots__ = CURD_FUNCTIONS
     
     def __init__(self, dbs=None):
         self._connection_cache = OrderedDict()
@@ -181,8 +177,6 @@ class F(object):
     
     
 class SimpleCollection(object):
-    __slots__ = CURD_FUNCTIONS
-    
     def __init__(self, session, path, timeout=None, retry=None):
         self.s = session
         self.path = path
