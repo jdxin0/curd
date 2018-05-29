@@ -3,17 +3,32 @@ from functools import partial
 from collections import OrderedDict
 
 from .connections import CURD_FUNCTIONS
-from .connections.mysql import MysqlConnectionPool
-from .connections.cassandra import CassandraConnectionPool
 
 from .errors import ProgrammingError
+
+
+DB_CONNECTION_POOL = {}
+
+try:
+    from .connections.mysql import MysqlConnectionPool
+except Exception:
+    pass
+else:
+    DB_CONNECTION_POOL['mysql'] = MysqlConnectionPool
+
+try:
+    from .connections.cassandra import CassandraConnectionPool
+except Exception:
+    pass
+else:
+    DB_CONNECTION_POOL['cassandra'] = CassandraConnectionPool
 
 
 class Session(object):
     '''
     mysql db conf
     {
-        'type': 'mysql'
+        'type': 'mysql',
         'conf': {
             'host': '127.0.0.1',
             'port': 3306,
@@ -25,7 +40,7 @@ class Session(object):
     }
     tidb conf
     {
-        'type': 'mysql'
+        'type': 'mysql',
         'conf': {
             'host': '127.0.0.1',
             'port': 3306,
@@ -58,12 +73,14 @@ class Session(object):
                 self._get_connection(db)
         
     def _create_connection(self, db):
-        if db['type'] == 'mysql':
-            return MysqlConnectionPool(db['conf'])
-        elif db['type'] == 'cassandra':
-            return CassandraConnectionPool(db['conf'])
+        class_conn_pool = DB_CONNECTION_POOL.get(db['type'], None)
+        if class_conn_pool:
+            return class_conn_pool(db['conf'])
         else:
-            raise ProgrammingError('not supported database')
+            if db['type'] in ['mysql', 'cassandra']:
+                raise ProgrammingError('no database driver')
+            else:
+                raise ProgrammingError('not supported database')
         
     def set_default_connection(self, db):
         key = json.dumps(db)
