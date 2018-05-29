@@ -1,4 +1,7 @@
 import copy
+import queue
+from functools import partial
+
 import pymysql
 
 from ..errors import (
@@ -14,7 +17,8 @@ from .utils.sql import (
     query_parameters_from_filter
 )
 from . import (
-    BaseConnection, DEFAULT_FILTER_LIMIT, DEFAULT_TIMEOUT, OP_RETRY_WARNING
+    BaseConnection, DEFAULT_FILTER_LIMIT, DEFAULT_TIMEOUT, OP_RETRY_WARNING,
+    CURD_FUNCTIONS
 )
 
 # https://www.briandunning.com/error-codes/?source=MySQL
@@ -100,9 +104,7 @@ class MysqlConnection(BaseConnection):
         self.conn, self.cursor = None, None
         
     def _execute(self, query, params, timeout):
-        if self.cursor and self.conn:
-            pass
-        else:
+        if not self.cursor:
             self.conn, self.cursor = self.connect(self._conf)
             
         self.conn._read_timeout = timeout
@@ -183,3 +185,38 @@ class MysqlConnection(BaseConnection):
     def patch_execute_as_tidb(self):
         self.of_mysql_error_code_list = OF_TIDB_ERROR_CODE_LIST
         self.of_mysql_retry_error_code_list = OF_TIDB_RETRY_ERROR_CODE_LIST
+
+
+class MysqlConnectionPool(object):
+    def __init__(self, *args, **kwargs):
+        self.conn_queue = queue.Queue()
+        self._args = args
+        self._kwargs = kwargs
+
+        for func in CURD_FUNCTIONS:
+            setattr(self, func, partial(self._wrap_func, func))
+
+    def get_connection(self):
+        return MysqlConnection(*self._args, **self._kwargs)
+
+    def _wrap_func(self, func, *args, **kwargs):
+        try:
+            conn = self.conn_queue.get_nowait()
+        except queue.Empty:
+            conn = self.get_connection()
+
+        try:
+            return getattr(conn, func)(*args, **kwargs)
+        except:
+            raise
+        finally:
+            self.conn_queue.put_nowait(conn)
+
+    def close(self):
+        while True:
+            try:
+                conn = self.conn_queue.get_nowait()
+            except queue.Empty:
+                break
+            else:
+                conn.close()

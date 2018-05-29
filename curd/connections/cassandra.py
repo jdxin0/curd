@@ -1,4 +1,7 @@
 import copy
+import time
+from threading import RLock
+
 from cassandra.auth import PlainTextAuthProvider
 from cassandra.cluster import Cluster
 from cassandra import Timeout, OperationTimedOut, InvalidRequest
@@ -20,7 +23,10 @@ from . import (
 )
 
 
-class CassandraConnection(BaseConnection):
+TIME_INTERVAL_TO_ACQUIRE_LOCK = 0.5
+
+
+class CassandraConnectionPool(BaseConnection):
     
     def __init__(self, conf):
         self._conf = conf
@@ -28,6 +34,8 @@ class CassandraConnection(BaseConnection):
 
         self.max_op_fail_retry = conf.get('max_op_fail_retry', 0)
         self.default_timeout = conf.get('timeout', DEFAULT_TIMEOUT)
+
+        self.cluster_init_lock = RLock()
         
     def _connect(self, conf):
         conf = copy.deepcopy(conf)
@@ -46,10 +54,20 @@ class CassandraConnection(BaseConnection):
         return cluster, session
     
     def connect(self, conf):
-        try:
-            return self._connect(conf)
-        except Exception as e:
-            raise ConnectError(origin_error=e)
+        while True:
+            result = self.cluster_init_lock.acquire(blocking=False)
+            if result:
+                if self.session:
+                    self.cluster_init_lock.release()
+                else:
+                    try:
+                        return self._connect(conf)
+                    except Exception as e:
+                        raise ConnectError(origin_error=e)
+                    finally:
+                        self.cluster_init_lock.release()
+            else:
+                time.sleep(TIME_INTERVAL_TO_ACQUIRE_LOCK)
 
     def close(self):
         if self.session:
@@ -66,9 +84,7 @@ class CassandraConnection(BaseConnection):
         self.cluster, self.session = None, None
         
     def _execute(self, query, params, **kwargs):
-        if self.cluster and self.session:
-            pass
-        else:
+        if not self.session:
             self.cluster, self.session = self.connect(self._conf)
         
         try:

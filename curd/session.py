@@ -1,56 +1,15 @@
 import json
-import queue
 from functools import partial
 from collections import OrderedDict
 
 from .connections import CURD_FUNCTIONS
-from .connections.mysql import MysqlConnection
-from .connections.cassandra import CassandraConnection
+from .connections.mysql import MysqlConnectionPool
+from .connections.cassandra import CassandraConnectionPool
 
 from .errors import ProgrammingError
 
 
-class CassandraConnectionPool(CassandraConnection):
-    pass
-
-
-class MysqlConnectionPool(object):
-    def __init__(self, *args, **kwargs):
-        self.conn_queue = queue.Queue()
-        self._args = args
-        self._kwargs = kwargs
-        
-        for func in CURD_FUNCTIONS:
-            setattr(self, func, partial(self._wrap_func, func))
-            
-    def get_connection(self):
-        return MysqlConnection(*self._args, **self._kwargs)
-        
-    def _wrap_func(self, func, *args, **kwargs):
-        try:
-            conn = self.conn_queue.get_nowait()
-        except queue.Empty:
-            conn = self.get_connection()
-            
-        try:
-            return getattr(conn, func)(*args, **kwargs)
-        except:
-            raise
-        finally:
-            self.conn_queue.put_nowait(conn)
-            
-    def close(self):
-        while True:
-            try:
-                conn = self.conn_queue.get_nowait()
-            except queue.Empty:
-                break
-            else:
-                conn.close()
-
-
 class Session(object):
-    
     '''
     mysql db conf
     {
@@ -174,8 +133,8 @@ class F(object):
     
     def __lshift__(self, other):
         return 'IN', self._value, other
-    
-    
+
+
 class SimpleCollection(object):
     def __init__(self, session, path, timeout=None, retry=None):
         self.s = session
