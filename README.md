@@ -1,11 +1,27 @@
 ## curd client
 
-supported databases:
+
+### Install
+```
+pip install curd[mysql]
+pip install curd[cassandra]
+```
+
+### Supported databases:
 * cassandra
-* mysql
+* mysql / tidb (some enhancements)
 
 
-### opretaions
+### Concurrency
+thread supported
+
+[**Notice**] you need a new session object when using multiple process.
+
+
+### Operations
+* Support operations: create, filter, update, delete, exist
+* Other operations: execute
+
 ```python
 from curd import Session
 
