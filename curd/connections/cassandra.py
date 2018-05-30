@@ -54,14 +54,17 @@ class CassandraConnectionPool(BaseConnection):
         return cluster, session
     
     def connect(self, conf):
-        while True:
+        connect = False
+        while not connect:
             result = self.cluster_init_lock.acquire(blocking=False)
             if result:
                 if self.session:
+                    connect = True
                     self.cluster_init_lock.release()
                 else:
                     try:
-                        return self._connect(conf)
+                        self.cluster, self.session = self._connect(conf)
+                        connect = True
                     except Exception as e:
                         raise ConnectError(origin_error=e)
                     finally:
@@ -85,7 +88,7 @@ class CassandraConnectionPool(BaseConnection):
         
     def _execute(self, query, params, **kwargs):
         if not self.session:
-            self.cluster, self.session = self.connect(self._conf)
+            self.connect(self._conf)
         
         try:
             result = list(self.session.execute(query, params, **kwargs))

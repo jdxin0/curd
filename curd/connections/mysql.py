@@ -84,7 +84,7 @@ class MysqlConnection(BaseConnection):
     
     def connect(self, conf):
         try:
-            return self._connect(conf)
+            self.conn, self.cursor = self._connect(conf)
         except Exception as e:
             raise ConnectError(origin_error=e)
     
@@ -105,7 +105,7 @@ class MysqlConnection(BaseConnection):
         
     def _execute(self, query, params, timeout):
         if not self.cursor:
-            self.conn, self.cursor = self.connect(self._conf)
+            self.connect(self._conf)
             
         self.conn._read_timeout = timeout
         self.conn._write_timeout = timeout
