@@ -13,10 +13,7 @@ pip install curd[cassandra]
 
 
 ### Concurrency
-thread supported
-
-[**Notice**] you need a new session object when using multiple process.
-
+multiple threads/processes supported
 
 ### Operations
 * Support operations: create, filter, update, delete, exist
