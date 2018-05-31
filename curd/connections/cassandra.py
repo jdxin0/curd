@@ -1,3 +1,4 @@
+import os
 import copy
 import time
 from threading import RLock
@@ -30,6 +31,7 @@ class CassandraConnectionPool(BaseConnection):
     
     def __init__(self, conf):
         self._conf = conf
+        self.pid = os.getpid()
         self.cluster, self.session = None, None
 
         self.max_op_fail_retry = conf.get('max_op_fail_retry', 0)
@@ -102,6 +104,10 @@ class CassandraConnectionPool(BaseConnection):
             return result
         
     def execute(self, query, params=None, retry=None, timeout=None):
+        if os.getpid() != self.pid:
+            self.close()
+            self.pid = os.getpid()
+
         if retry is None:
             retry = self.max_op_fail_retry
             

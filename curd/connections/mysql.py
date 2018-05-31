@@ -1,3 +1,4 @@
+import os
 import copy
 import queue
 from functools import partial
@@ -57,6 +58,7 @@ class MysqlConnection(BaseConnection):
     
     def __init__(self, conf):
         self._conf = conf
+        self.pid = os.getpid()
         self.conn, self.cursor = None, None
 
         self.max_op_fail_retry = conf.get('max_op_fail_retry', 0)
@@ -128,6 +130,10 @@ class MysqlConnection(BaseConnection):
             return list(self.cursor.fetchall())
             
     def execute(self, query, params=None, retry=None, timeout=None):
+        if os.getpid() != self.pid:
+            self.close()
+            self.pid = os.getpid()
+
         if retry is None:
             retry = self.max_op_fail_retry
             
