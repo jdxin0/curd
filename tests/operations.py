@@ -1,6 +1,7 @@
 import pytest
 
-import copy
+import time
+
 from multiprocessing.pool import ThreadPool
 from threading import current_thread
 
@@ -9,18 +10,20 @@ from curd import DuplicateKeyError, OperationFailure
 
 def create(session, create_test_table):
     collection = create_test_table(session)
+
     data = {'id': 100, 'text': 'test'}
+
     session.create(collection, data)
     with pytest.raises(DuplicateKeyError):
         session.create(collection, data, mode='insert')
-    # session.create(collection, data, mode='ignore')
-    d = session.get(collection, [('=', 'id', data['id'])])
-    assert d == data
-    data2 = copy.deepcopy(data)
-    data2['text'] = 't2'
+
+    assert data == session.get(collection, [('=', 'id', 100)])
+
+    time.sleep(10)
+    data2 = {'id': 100, 'text': 't2'}
     session.create(collection, data2, mode='replace')
-    d = session.get(collection, [('=', 'id', data2['id'])])
-    assert d != data
+
+    assert data != session.get(collection, [('=', 'id', 100)])
     
     
 def update(session, create_test_table):
@@ -36,6 +39,7 @@ def delete(session, create_test_table):
     collection = create_test_table(session)
     data = {'id': 100, 'text': 'test'}
     session.create(collection, data)
+    time.sleep(10)
     session.delete(collection, [('=', 'id', data['id'])])
     d = session.get(collection, [('=', 'id', data['id'])])
     assert d is None
