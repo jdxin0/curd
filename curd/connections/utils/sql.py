@@ -188,10 +188,11 @@ class CreateStatement(BaseSQLStatement):
     def generate_query_fields_values(self, assignments, compress_fields):
         fields = [a.field for a in assignments]
         query_values = ['%s']*len(assignments)
-        for index, field in enumerate(fields):
-            for cf in compress_fields:
-                if '`'+cf+'`' == field:  # field should be like '`id`'
-                    query_values[index] = 'COMPRESS(%s)'
+        if type(compress_fields) == list:
+            for index, field in enumerate(fields):
+                for cf in compress_fields:
+                    if '`'+cf+'`' == field:  # field should be like '`id`'
+                        query_values[index] = 'COMPRESS(%s)'
         query_fields = ', '.join(fields)
         query_values = ', '.join(query_values)
         for a in assignments:
