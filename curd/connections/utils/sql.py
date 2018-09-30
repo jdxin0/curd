@@ -170,11 +170,12 @@ class DeleteStatement(BaseSQLStatement):
 class CreateStatement(BaseSQLStatement):
     BASE_QUERY = '{} INTO {} ({}) VALUES ({})'
     
-    def __init__(self, table, assignments, mode):
+    def __init__(self, table, assignments, mode, compress_fields):
         super().__init__()
         self.table = table
         self.assignments = assignments
         self.mode = mode
+        self.compress_fields = compress_fields
         
     def generate_query_mode(self, mode):
         if mode == 'INSERT':
@@ -184,9 +185,15 @@ class CreateStatement(BaseSQLStatement):
         elif mode == 'REPLACE':
             return 'REPLACE'
         
-    def generate_query_fields_values(self, assignments):
-        query_fields = ', '.join([a.field for a in assignments])
-        query_values = ', '.join(['%s']*len(assignments))
+    def generate_query_fields_values(self, assignments, compress_fields):
+        fields = [a.field for a in assignments]
+        query_values = ['%s']*len(assignments)
+        for index, field in enumerate(fields):
+            for cf in compress_fields:
+                if '`'+cf+'`' == field:  # field should be like '`id`'
+                    query_values[index] = 'COMPRESS(%s)'
+        query_fields = ', '.join(fields)
+        query_values = ', '.join(query_values)
         for a in assignments:
             self.params.append(a.value)
         return query_fields, query_values
@@ -198,7 +205,8 @@ class CreateStatement(BaseSQLStatement):
         query_table = self.generate_query_field(self.table)
         
         query_fields, query_values = self.generate_query_fields_values(
-            self.assignments)
+            self.assignments, self.compress_fields
+        )
         
         self.query = self.BASE_QUERY.format(
             query_mode, query_table, query_fields, query_values
@@ -253,10 +261,10 @@ def assignment_clauses_clauses_from_filters(data):
     return assignment_clauses
 
 
-def query_parameters_from_create(collection, data, mode='INSERT'):
+def query_parameters_from_create(collection, data, mode='INSERT', compress_fields=None):
     table = FieldClause(collection)
     assignments = assignment_clauses_clauses_from_filters(data)
-    query, params = CreateStatement(table, assignments, mode).as_sql()
+    query, params = CreateStatement(table, assignments, mode, compress_fields).as_sql()
     return query, params
 
 
