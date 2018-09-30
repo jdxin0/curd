@@ -159,9 +159,10 @@ class MysqlConnection(BaseConnection):
             else:
                 return rows
 
-    def create(self, collection, data, mode='INSERT', **kwargs):
+    def create(self, collection, data, mode='INSERT', compress_fields=None, **kwargs):
         query, params = query_parameters_from_create(
-            collection, data, mode.upper())
+            collection, data, mode.upper(), compress_fields
+        )
         try:
             self.execute(query, params, **kwargs)
         except ProgrammingError as e:
