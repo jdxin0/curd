@@ -14,6 +14,6 @@ setup(
     install_requires=[],
     extras_require={
         'cassandra': ['cassandra-driver==3.11.0'],
-        'mysql': ['PyMySQL==0.7.11']
+        'mysql': ['PyMySQL==1.0.2']
     }
 )
