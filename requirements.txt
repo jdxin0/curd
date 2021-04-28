@@ -1,5 +1,5 @@
 # database
-cassandra-driver==3.11.0
+cassandra-driver==3.25.0
 pymongo==3.5.1
 PyMySQL==0.7.11
 
